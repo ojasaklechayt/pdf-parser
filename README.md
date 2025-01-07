@@ -16,6 +16,9 @@ PDF Parser is a Next.js-based application designed to upload, parse, and search 
 - **OCR**: Tesseract.js
 - **PDF Parsing**: pdf-parse
 
+## Youtube Video
+[![Youtube Video](https://img.youtube.com/vi/yvZY0UUHtyw/0.jpg)](https://youtu.be/yvZY0UUHtyw)
+
 ## Getting Started
 
 ### Prerequisites
@@ -71,58 +74,3 @@ PDF Parser is a Next.js-based application designed to upload, parse, and search 
 
 5. Open the application:
    - Visit [http://localhost:3000](http://localhost:3000) in your browser.
-
-## Usage
-
-### Uploading a Document
-1. Click on the "Upload PDF" section.
-2. Drag and drop a PDF file or click to select one.
-3. The document will be processed, and the text will be extracted.
-
-### Searching Documents
-1. Enter a search term in the search bar.
-2. Select the match type (Exact or Fuzzy).
-3. The results will be displayed below the search bar.
-
-### Viewing a Document
-1. Click on a document from the "Uploaded Documents" list.
-2. The document content will be displayed in the viewer section.
-
-### Downloading a Document
-1. Click the "Download" button next to the document in the "Uploaded Documents" list.
-2. The document will be downloaded to your device.
-
-## Project Structure
-
-### Frontend
-- `app/`: Next.js pages and layout.
-- `components/`: Reusable React components.
-- `lib/`: API and utility functions.
-- `styles/`: Global styles and Tailwind configuration.
-
-### Backend
-- `controllers/`: Handles API logic.
-- `models/`: MongoDB schema definitions.
-- `routes/`: API route definitions.
-- `services/`: Business logic for PDF and OCR processing.
-- `middleware/`: Middleware for file uploads and other tasks.
-
-## Contributing
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository.
-2. Create a new branch (`git checkout -b feature/YourFeatureName`).
-3. Commit your changes (`git commit -m 'Add some feature'`).
-4. Push to the branch (`git push origin feature/YourFeatureName`).
-5. Open a pull request.
-
-## License
-This project is licensed under the MIT License. See the LICENSE file for details.
-
-## Acknowledgments
-- Next.js for the frontend framework.
-- Tesseract.js for OCR capabilities.
-- pdf-parse for PDF text extraction.
-
-## Contact
-For any questions or feedback, please reach out to ojasaklechayt@example.com.
