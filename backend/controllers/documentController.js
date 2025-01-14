@@ -1,6 +1,9 @@
 const Document = require('../models/Document');
 const pdfService = require('../services/pdfService');
 const ocrService = require('../services/ocrService');
+const fs = require('fs');
+const path = require('path');
+const pdfParse = require('pdf-parse')
 
 // Method for uploading documents
 exports.uploadDocument = async (req, res) => {
@@ -14,6 +17,7 @@ exports.uploadDocument = async (req, res) => {
 
         if (!content.trim()) {
             content = await ocrService.performOCR(path);
+            console.log('Teserract Parser: ', content.trim(0, 100));
         }
 
         const document = new Document({
@@ -49,7 +53,26 @@ exports.getDocument = async (req, res) => {
         if (!document) {
             return res.status(404).json({ message: 'Document not found' });
         }
-        res.json(document);
+
+        if (!fs.existsSync(document.path)) {
+            return res.status(404).json({ message: 'Document not found' });
+        }
+
+        const pdfBuffer = fs.readFileSync(document.path);
+        const pdfData = await pdfParse(pdfBuffer);
+        const pageCount = pdfData.numpages;
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${path.basename(document.path)}"`);
+        res.setHeader('X-Page-Count', pageCount);
+
+        const pdfStream = fs.createReadStream(document.path);
+        pdfStream.on('error', (error) => {
+            console.error('Stream error:', error);
+            res.status(500).end();
+        });
+        pdfStream.pipe(res);
+
     } catch (error) {
         console.error('Error fetching document:', error);
         res.status(500).json({ message: 'Error fetching document' });
@@ -92,7 +115,7 @@ exports.searchDocuments = async (req, res) => {
 
         const results = documents.map(doc => {
             const snippet = findSnippet(doc.content, query);
-            
+
             return {
                 id: doc._id,
                 name: doc.name,

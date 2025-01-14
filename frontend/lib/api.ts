@@ -23,10 +23,10 @@ export async function getAllDocuments(): Promise<any[]> {
     return response.json();
 }
 
-export async function getDocument(id: string): Promise<any> {
+export async function getDocument(id: string, asBlob = false): Promise<Blob | any> {
     const response = await fetch(`${API_BASE_URL}/documents/${id}`);
     if (!response.ok) throw new Error('Failed to fetch document');
-    return response.json();
+    return asBlob ? await response.blob() : response.json();
 }
 
 export async function searchDocuments(query: string, matchType: 'exact' | 'fuzzy'): Promise<any[]> {
