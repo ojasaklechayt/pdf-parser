@@ -29,8 +29,13 @@ export async function getDocument(id: string, asBlob = false): Promise<Blob | an
     return asBlob ? await response.blob() : response.json();
 }
 
-export async function searchDocuments(query: string, matchType: 'exact' | 'fuzzy'): Promise<any[]> {
-    const params = new URLSearchParams({ query, matchType });
+export async function searchDocuments(query: string, matchType: 'exact' | 'fuzzy', documentId: string | null): Promise<any[]> {
+    const params = new URLSearchParams({
+        query,
+        matchType,
+        ...(documentId ? { documentId } : {})
+    });
+
     const response = await fetch(`${API_BASE_URL}/documents/search?${params}`);
     if (!response.ok) throw new Error('Failed to search documents');
     return response.json();

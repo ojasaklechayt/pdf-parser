@@ -1,9 +1,8 @@
 const Document = require('../models/Document');
-const pdfService = require('../services/pdfService');
-const ocrService = require('../services/ocrService');
 const fs = require('fs');
 const path = require('path');
 const pdfParse = require('pdf-parse')
+const Tesseract = require('tesseract.js');
 
 // Method for uploading documents
 exports.uploadDocument = async (req, res) => {
@@ -13,17 +12,9 @@ exports.uploadDocument = async (req, res) => {
         }
 
         const { path, originalname } = req.file;
-        let content = await pdfService.extractTextFromPDF(path);
-
-        if (!content.trim()) {
-            content = await ocrService.performOCR(path);
-            console.log('Teserract Parser: ', content.trim(0, 100));
-        }
-
         const document = new Document({
             name: originalname,
             path: path,
-            content: content
         });
 
         await document.save();
@@ -82,7 +73,7 @@ exports.getDocument = async (req, res) => {
 // Method for searching documents
 exports.searchDocuments = async (req, res) => {
     try {
-        const { query, matchType } = req.query;
+        const { query, matchType, documentId } = req.query;
 
         if (!query) {
             return res.status(400).json({
@@ -90,41 +81,44 @@ exports.searchDocuments = async (req, res) => {
             });
         }
 
-        let searchCriteria = {};
-        let searchOptions = {};
-
-        if (matchType === 'exact') {
-            // For exact match, wrap the query in quotes
-            searchCriteria = {
-                $text: {
-                    $search: `"${query}"`,
-                    $caseSensitive: false
-                }
-            };
-            searchOptions.score = { $meta: 'textScore' };
-        } else {
-            // For fuzzy match, use regex
-            const searchRegex = new RegExp(query, 'i');
-            searchCriteria = { content: searchRegex };
+        if(!documentId){
+            return res.status(400).json({
+                message: 'Document Id not found'
+            });
         }
 
-        const documents = await Document.find(
-            searchCriteria,
-            searchOptions
-        ).limit(20);
+        const docu = await Document.findById(documentId);
+        console.log(docu);
+        
+        const filepath = docu.path;
 
-        const results = documents.map(doc => {
-            const snippet = findSnippet(doc.content, query);
+        let pageTexts = []
 
+        const dataBuffer = fs.readFileSync(filepath)
+        const pdfData = await pdfParse(dataBuffer)
+
+        for(let i = 1; i <= pdfData.numpages; i++){
+            const pageText = await extractPageText(filepath, i);
+            pageTexts.push({ page: i, text: pageText });
+        }
+
+        const results = pageTexts.filter(page => {
+            if(matchType === 'exact'){
+                return page.text.toLowerCase().includes(query.toLowerCase());
+            } else {
+                const regex = new RegExp(query, 'i');
+                return regex.test(page.text);
+            }
+        }).map(page => {
+            const snippet = findSnippet(page.text, query);
             return {
-                id: doc._id,
-                name: doc.name,
-                snippet: snippet || doc.content.substring(0, 200) + '...',
-                relevance: doc._score ? doc._score : 1
+                id: docu._id,
+                name: docu.name,
+                pageNumber: page.page,
+                snippet: snippet || page.text.substring(0, 200) + '...',
+                relevance: 1
             };
-        });
-
-        results.sort((a, b) => b.relevance - a.relevance);
+        })
 
         res.json(results);
     } catch (error) {
@@ -161,4 +155,28 @@ function findSnippet(text, query) {
     const start = Math.max(0, bestIndex - 10);
     const end = Math.min(words.length, bestIndex + 11);
     return words.slice(start, end).join(' ') + (end < words.length ? '...' : '');
+}
+
+
+async function extractPageText(filePath, pageNum) {
+    try {
+        const dataBuffer = fs.readFileSync(filePath);
+        const data = await pdfParse(dataBuffer, {max: pageNum});
+        const pageText = data.text;
+
+        if(!pageText.trim()){
+            const { data: { text } } = await Tesseract.recognize(filePath, 'eng', {
+                logger: m => console.log(m),
+                pageSegMode: 'single_block',
+                pagesegmode: 1,
+                tessedit_page_number: pageNum
+            });
+            return text;
+        }
+
+        return pageText;
+    } catch (error) {
+        console.error(`Error extracting text from page ${pageNum}: `, error);
+        return '';
+    }
 }

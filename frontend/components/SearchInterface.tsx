@@ -18,10 +18,12 @@ interface SearchResult {
 }
 
 interface SearchInterfaceProps {
-  onDocumentSelect?: (id: string) => void
+  documentId: string | null, 
+  onDocumentSelect?: (id: string) => void,
+  setDisplayContent: React.Dispatch<React.SetStateAction<object | null>>;
 }
 
-export default function SearchInterface({ onDocumentSelect }: SearchInterfaceProps) {
+export default function SearchInterface({ documentId, onDocumentSelect, setDisplayContent }: SearchInterfaceProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [matchType, setMatchType] = useState<'exact' | 'fuzzy'>('fuzzy')
   const [results, setResults] = useState<SearchResult[]>([])
@@ -29,7 +31,7 @@ export default function SearchInterface({ onDocumentSelect }: SearchInterfacePro
   const { toast } = useToast()
 
   const debouncedSearch = useCallback(
-    debounce(async (term: string, type: 'exact' | 'fuzzy') => {
+    debounce(async (term: string, type: 'exact' | 'fuzzy', docId: string | null) => {
       if (!term.trim()) {
         setResults([])
         return
@@ -37,7 +39,9 @@ export default function SearchInterface({ onDocumentSelect }: SearchInterfacePro
 
       setIsLoading(true)
       try {
-        const searchResults = await searchDocuments(term, type)
+        console.log(docId);
+        const searchResults = await searchDocuments(term, type, docId)
+        setDisplayContent(searchResults)
         setResults(searchResults)
       } catch (error) {
         console.error(error)
@@ -57,11 +61,13 @@ export default function SearchInterface({ onDocumentSelect }: SearchInterfacePro
   const handleSearchTermChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setSearchTerm(value)
-    debouncedSearch(value, matchType)
+    debouncedSearch(value, matchType, documentId)
   }
 
   const handleResultClick = (resultId: string) => {
     if (onDocumentSelect) {
+      console.log(resultId + "clicked")
+      setDisplayContent(results);
       onDocumentSelect(resultId)
     }
   }

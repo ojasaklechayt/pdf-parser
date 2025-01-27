@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Worker, Viewer, RenderError } from '@react-pdf-viewer/core';
 import { pageNavigationPlugin } from '@react-pdf-viewer/page-navigation';
 import '@react-pdf-viewer/page-navigation/lib/styles/index.css';
@@ -10,13 +10,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { getDocument } from '@/lib/api';
+import { highlightPlugin, HighlightArea, RenderHighlightsProps } from '@react-pdf-viewer/highlight';
+import '@react-pdf-viewer/core/lib/styles/index.css';
+import '@react-pdf-viewer/highlight/lib/styles/index.css';
 
 interface DocumentViewerProps {
   documentId: string | null;
-  searchTerm?: string;
+  displayContent: object | null
 }
 
-const DocumentViewer: React.FC<DocumentViewerProps> = ({ documentId, searchTerm = '' }) => {
+const DocumentViewer: React.FC<DocumentViewerProps> = ({ documentId, displayContent }) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [pageCount, setPageCount] = useState<number | null>(null);
@@ -26,11 +29,24 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ documentId, searchTerm 
   // Initialize plugins with their options
   const pageNavigationPluginInstance = pageNavigationPlugin();
 
+  console.log(displayContent);
   // Get the plugin components and functions
   const {
     CurrentPageInput,
     NumberOfPages,
   } = pageNavigationPluginInstance;
+
+  const highlights: HighlightArea[] = useMemo(() => {
+    if (!displayContent || !Array.isArray(displayContent)) return [];
+
+    return displayContent.flatMap((result: any) => ({
+      pageIndex: result.pageNumber - 1,
+      height: 10,
+      width: 100,
+      left: 0,
+      top: 0,
+    }));
+  }, [displayContent]);
 
   useEffect(() => {
     let isMounted = true;
@@ -93,6 +109,35 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ documentId, searchTerm 
     </div>
   );
 
+
+  const renderHighlights = (props: RenderHighlightsProps) => (
+    <div>
+      {highlights
+        .filter((area) => area.pageIndex === props.pageIndex)
+        .map((area, idx) => (
+          <div
+            key={idx}
+            style={Object.assign(
+              {},
+              {
+                background: 'yellow',
+                opacity: 0.4,
+              },
+              props.getCssProperties(area, props.rotation)
+            )}
+          />
+        ))}
+    </div>
+  );
+
+  const highlightPluginInstance = highlightPlugin({
+    renderHighlights,
+  });
+
+  if (!pdfUrl) {
+    return <div>Loading PDF...</div>;
+  }
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -125,7 +170,7 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ documentId, searchTerm 
                   onDocumentLoad={handleDocumentLoad}
                   onPageChange={handlePageChange}
                   renderError={renderError}
-                  plugins={[pageNavigationPluginInstance]}
+                  plugins={[pageNavigationPluginInstance, highlightPluginInstance]}
                 />
               </Worker>
             </div>
