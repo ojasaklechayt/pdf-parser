@@ -18,7 +18,7 @@ interface SearchResult {
 }
 
 interface SearchInterfaceProps {
-  documentId: string | null, 
+  documentId: string | null,
   onDocumentSelect?: (id: string) => void,
   setDisplayContent: React.Dispatch<React.SetStateAction<object | null>>;
 }
@@ -33,30 +33,31 @@ export default function SearchInterface({ documentId, onDocumentSelect, setDispl
   const debouncedSearch = useCallback(
     debounce(async (term: string, type: 'exact' | 'fuzzy', docId: string | null) => {
       if (!term.trim()) {
-        setResults([])
-        return
+        setResults([]);
+        setDisplayContent(null);
+        return;
       }
 
-      setIsLoading(true)
+      setIsLoading(true);
       try {
-        console.log(docId);
-        const searchResults = await searchDocuments(term, type, docId)
-        setDisplayContent(searchResults)
-        setResults(searchResults)
+        const searchResults = await searchDocuments(term, type, docId);
+        setResults(searchResults);
+        setDisplayContent(searchResults); // Pass results for highlighting
       } catch (error) {
-        console.error(error)
+        console.error(error);
         toast({
-          title: "Search Failed",
-          description: "There was an error performing the search.",
-          variant: "destructive",
-        })
-        setResults([])
+          title: 'Search Failed',
+          description: 'There was an error performing the search.',
+          variant: 'destructive',
+        });
+        setResults([]);
+        setDisplayContent(null);
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
     }, 300),
-    [toast]
-  )
+    [toast, setDisplayContent]
+  );
 
   const handleSearchTermChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -99,7 +100,6 @@ export default function SearchInterface({ documentId, onDocumentSelect, setDispl
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="exact">Exact Match</SelectItem>
-              <SelectItem value="fuzzy">Fuzzy Match</SelectItem>
             </SelectContent>
           </Select>
         </div>

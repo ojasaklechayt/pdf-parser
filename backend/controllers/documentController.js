@@ -75,58 +75,50 @@ exports.searchDocuments = async (req, res) => {
     try {
         const { query, matchType, documentId } = req.query;
 
-        if (!query) {
+        if (!query || !documentId) {
             return res.status(400).json({
-                message: 'Search query is required'
+                message: 'Search query and document ID are required'
             });
         }
 
-        if(!documentId){
-            return res.status(400).json({
-                message: 'Document Id not found'
+        const document = await Document.findById(documentId);
+        if (!document) {
+            return res.status(404).json({
+                message: 'Document not found'
             });
         }
 
-        const docu = await Document.findById(documentId);
-        console.log(docu);
-        
-        const filepath = docu.path;
+        const dataBuffer = fs.readFileSync(document.path);
+        const pdfData = await pdfParse(dataBuffer);
 
-        let pageTexts = []
+        const results = [];
 
-        const dataBuffer = fs.readFileSync(filepath)
-        const pdfData = await pdfParse(dataBuffer)
+        // Split the content by pages and process each
+        const pages = pdfData.text.split(/\f/); // Split by page separator
+        pages.forEach((pageText, pageIndex) => {
+            const regex = new RegExp(query, matchType === 'exact' ? 'g' : 'gi');
+            let match;
+            while ((match = regex.exec(pageText)) !== null) {
+                const startIdx = match.index;
+                const snippet = pageText.slice(Math.max(0, startIdx - 20), startIdx + 20);
 
-        for(let i = 1; i <= pdfData.numpages; i++){
-            const pageText = await extractPageText(filepath, i);
-            pageTexts.push({ page: i, text: pageText });
-        }
-
-        const results = pageTexts.filter(page => {
-            if(matchType === 'exact'){
-                return page.text.toLowerCase().includes(query.toLowerCase());
-            } else {
-                const regex = new RegExp(query, 'i');
-                return regex.test(page.text);
+                results.push({
+                    id: documentId,
+                    name: document.name,
+                    snippet,
+                    pageNumber: pageIndex + 1,
+                    position: {
+                        x: (startIdx % 80) * 10, // Approximate X position
+                        y: Math.floor(startIdx / 80) * 15 // Approximate Y position
+                    }
+                });
             }
-        }).map(page => {
-            const snippet = findSnippet(page.text, query);
-            return {
-                id: docu._id,
-                name: docu.name,
-                pageNumber: page.page,
-                snippet: snippet || page.text.substring(0, 200) + '...',
-                relevance: 1
-            };
-        })
+        });
 
         res.json(results);
     } catch (error) {
-        console.error('Error searching documents:', error);
-        res.status(500).json({
-            message: 'Error searching documents',
-            error: error.message
-        });
+        console.error('Error searching document:', error);
+        res.status(500).json({ message: 'Error searching document' });
     }
 };
 
@@ -161,10 +153,10 @@ function findSnippet(text, query) {
 async function extractPageText(filePath, pageNum) {
     try {
         const dataBuffer = fs.readFileSync(filePath);
-        const data = await pdfParse(dataBuffer, {max: pageNum});
+        const data = await pdfParse(dataBuffer, { max: pageNum });
         const pageText = data.text;
 
-        if(!pageText.trim()){
+        if (!pageText.trim()) {
             const { data: { text } } = await Tesseract.recognize(filePath, 'eng', {
                 logger: m => console.log(m),
                 pageSegMode: 'single_block',
